@@ -1,16 +1,13 @@
 import React, { useEffect, useRef } from "react";
-import cornerstone from "cornerstone-core";
-import cornerstoneWADOImageLoader from "cornerstone-wado-image-loader";
-import dicomParser from "dicom-parser";
-
-cornerstoneWADOImageLoader.external.cornerstone = cornerstone;
-cornerstoneWADOImageLoader.external.dicomParser = dicomParser;
+import { cornerstone, cornerstoneWADOImageLoader, cornerstoneTools, initCornerstoneTools } from "./cornerstoneSetup";
 
 export default function DicomImage({ file, tool }) {
   const divRef = useRef();
-  const imageIdRef = useRef();
 
+  // Initialize and load image
   useEffect(() => {
+    initCornerstoneTools();
+
     if (!file) return;
 
     const element = divRef.current;
@@ -18,19 +15,28 @@ export default function DicomImage({ file, tool }) {
 
     const imageUrl = URL.createObjectURL(file);
     const imageId = `wadouri:${imageUrl}`;
-    imageIdRef.current = imageId;
 
-    cornerstone.loadImage(imageId).then(image => {
-      cornerstone.displayImage(element, image);
+    cornerstone.loadImage(imageId)
+      .then(image => {
+        cornerstone.displayImage(element, image);
 
-      // Set default viewport after image is displayed
-      const viewport = cornerstone.getViewport(element);
-      if (viewport) {
-        viewport.scale = 1;
-        viewport.invert = false;
-        cornerstone.setViewport(element, viewport);
-      }
-    });
+        // Add tools once per element
+        if (!element.toolsAdded) {
+          cornerstoneTools.addTool(cornerstoneTools.WwwcTool);
+          cornerstoneTools.addTool(cornerstoneTools.ZoomTool);
+          cornerstoneTools.addTool(cornerstoneTools.PanTool);
+          cornerstoneTools.addTool(cornerstoneTools.LengthTool);
+          cornerstoneTools.addTool(cornerstoneTools.FreehandRoiTool);
+          element.toolsAdded = true;
+        }
+
+        // Set default tool
+        cornerstoneTools.setToolActive("Wwwc", { mouseButtonMask: 1 });
+      })
+      .catch(err => {
+        alert("Could not load DICOM image. Try another file.");
+        console.error(err);
+      });
 
     return () => {
       cornerstone.disable(element);
@@ -38,28 +44,59 @@ export default function DicomImage({ file, tool }) {
     };
   }, [file]);
 
-  // Only update viewport if image is loaded and element is enabled
+  // Handle tool switching and viewport changes
   useEffect(() => {
     const element = divRef.current;
     if (!element) return;
-    const enabledElement = cornerstone.getEnabledElement(element);
-    if (!enabledElement || !enabledElement.image) return; // <--- this is the key fix
 
+    // Disable all mouse tools first
+    ["Wwwc", "Zoom", "Pan", "Length", "FreehandRoi"].forEach(t => {
+      try { cornerstoneTools.setToolDisabled(t, {}); } catch {}
+    });
+
+    // Activate the selected mouse tool
+    if (tool === "Wwwc") {
+      cornerstoneTools.setToolActive("Wwwc", { mouseButtonMask: 1 });
+    } else if (tool === "Zoom") {
+      cornerstoneTools.setToolActive("Zoom", { mouseButtonMask: 1 });
+    } else if (tool === "Pan") {
+      cornerstoneTools.setToolActive("Pan", { mouseButtonMask: 1 });
+    } else if (tool === "Length") {
+      cornerstoneTools.setToolActive("Length", { mouseButtonMask: 1 });
+    } else if (tool === "FreehandRoi") {
+      cornerstoneTools.setToolActive("FreehandRoi", { mouseButtonMask: 1 });
+    }
+
+    // Handle viewport operations
+    const enabledElement = cornerstone.getEnabledElement(element);
+    if (!enabledElement || !enabledElement.image) return;
     const viewport = cornerstone.getViewport(element);
 
-    if (tool === "zoomIn") {
-      viewport.scale *= 1.2;
-      cornerstone.setViewport(element, viewport);
-    } else if (tool === "zoomOut") {
-      viewport.scale /= 1.2;
-      cornerstone.setViewport(element, viewport);
-    } else if (tool === "invert") {
+    if (tool === "Invert") {
       viewport.invert = !viewport.invert;
       cornerstone.setViewport(element, viewport);
-    } else if (tool === "reset") {
-      viewport.scale = 1;
-      viewport.invert = false;
+    }
+    if (tool === "FlipH") {
+      viewport.hflip = !viewport.hflip;
       cornerstone.setViewport(element, viewport);
+    }
+    if (tool === "FlipV") {
+      viewport.vflip = !viewport.vflip;
+      cornerstone.setViewport(element, viewport);
+    }
+    if (tool === "Rotate") {
+      viewport.rotation = (viewport.rotation + 90) % 360;
+      cornerstone.setViewport(element, viewport);
+    }
+    if (tool === "Reset") {
+      viewport.scale = 1;
+      viewport.rotation = 0;
+      viewport.invert = false;
+      viewport.hflip = false;
+      viewport.vflip = false;
+      cornerstone.setViewport(element, viewport);
+      // Reset tool to window/level after reset
+      cornerstoneTools.setToolActive("Wwwc", { mouseButtonMask: 1 });
     }
   }, [tool]);
 
