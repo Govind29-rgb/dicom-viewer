@@ -12,7 +12,16 @@ A simple DICOM viewer built with React.
 
 [https://github.com/Govind29-rgb/dicom-viewer](https://github.com/Govind29-rgb/dicom-viewer)
 
----
+---src/
+│
+├── App.js                # Main React component, handles layout and tool selection
+├── DicomImage.js         # Core DICOM viewer, handles image display, tools, and annotations
+├── cornerstoneSetup.js   # Initializes cornerstone and its dependencies
+├── index.js              # Entry point, renders App component
+├── index.css             # Global styles for the app
+├── ...                   # (Other files/components if present)
+
+
 
 ## 🛠️ Project Setup
 
