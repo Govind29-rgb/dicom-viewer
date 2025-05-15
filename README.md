@@ -6,7 +6,7 @@ A simple DICOM viewer built with React.
 
 ## 🚀 Live Demo
 
-[https://glowing-gumdrop-e37266.netlify.app/](https://glowing-gumdrop-e37266.netlify.app/)
+[https://exquisite-sawine-7fe55f.netlify.app/](https://exquisite-sawine-7fe55f.netlify.app/)
 
 ## 📦 GitHub Repository
 
