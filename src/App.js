@@ -1,9 +1,12 @@
 import React, { useState } from "react";
 import DicomImage from "./DicomImage";
+import {
+  FaArrowsAlt, FaRuler, FaPencilAlt, FaSun, FaSync, FaSearchPlus, FaSearchMinus, FaUndo, FaExpandArrowsAlt
+} from "react-icons/fa";
 
 function App() {
   const [file, setFile] = useState(null);
-  const [tool, setTool] = useState("Wwwc"); // Default tool
+  const [tool, setTool] = useState("Wwwc");
 
   function handleFileChange(e) {
     const selectedFile = e.target.files[0];
@@ -15,27 +18,102 @@ function App() {
   }
 
   return (
-    <div style={{ display: "flex", fontFamily: "Arial, sans-serif", minHeight: "100vh" }}>
+    <div style={{
+      display: "flex",
+      height: "100vh",
+      background: "#18181b"
+    }}>
+      {/* Main Viewer Area */}
       <div style={{
-        width: "200px", background: "#f7f7f7", padding: "1rem", borderRight: "1px solid #ddd"
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        alignItems: "center",
+        position: "relative"
       }}>
-        <h3>Tools</h3>
-        <button onClick={() => setTool("Wwwc")}>Brightness/Contrast</button>
-        <button onClick={() => setTool("Zoom")}>Zoom</button>
-        <button onClick={() => setTool("Pan")}>Pan</button>
-        <button onClick={() => setTool("Invert")}>Invert</button>
-        <button onClick={() => setTool("FlipH")}>Flip Horizontal</button>
-        <button onClick={() => setTool("FlipV")}>Flip Vertical</button>
-        <button onClick={() => setTool("Rotate")}>Rotate 90°</button>
-        <button onClick={() => setTool("Length")}>Measure Length</button>
-        <button onClick={() => setTool("FreehandRoi")}>Freehand Draw</button>
-        <button onClick={() => setTool("Reset")}>Reset</button>
-      </div>
-      <div style={{ flex: 1, padding: "2rem" }}>
-        <h2>DICOM Viewer</h2>
-        <input type="file" accept=".dcm" onChange={handleFileChange} />
+        <div style={{ position: "absolute", top: 24, left: 24 }}>
+          <input type="file" accept=".dcm" onChange={handleFileChange} style={{ color: "#fff" }} />
+        </div>
         {file && <DicomImage file={file} tool={tool} />}
+        {/* Legend Box */}
+        <div style={{
+          position: "absolute",
+          bottom: 30,
+          right: 30,
+          background: "#18181b",
+          color: "#fff",
+          borderRadius: 8,
+          padding: "1rem 1.5rem",
+          boxShadow: "0 2px 12px #0005",
+          minWidth: 220
+        }}>
+          <b>Tooth Parts</b>
+          <div style={{ display: "flex", flexWrap: "wrap", marginTop: 8 }}>
+            <Legend color="#f6c66a" label="Bone" />
+            <Legend color="#f5f5f5" label="Enamel" />
+            <Legend color="#7fffd4" label="Dentin" />
+            <Legend color="#c7a4ff" label="Pulp" />
+            <Legend color="#b0c4de" label="Cementum" />
+            <Legend color="#ffb6b6" label="Restoration" />
+          </div>
+        </div>
       </div>
+      {/* Vertical Icon Sidebar (Right) */}
+      <div style={{
+        width: 60,
+        background: "#23232b",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        padding: "16px 0",
+        gap: 18,
+        borderLeft: "2px solid #1f1f24"
+      }}>
+        <SidebarIcon icon={<FaSun />} label="Brightness/Contrast" onClick={() => setTool("Wwwc")} />
+        <SidebarIcon icon={<FaRuler />} label="Measure Length" onClick={() => setTool("Length")} />
+        <SidebarIcon icon={<FaPencilAlt />} label="Freehand Draw" onClick={() => setTool("FreehandRoi")} />
+        <SidebarIcon icon={<FaExpandArrowsAlt />} label="Pan" onClick={() => setTool("Pan")} />
+        <SidebarIcon icon={<FaSearchPlus />} label="Zoom" onClick={() => setTool("Zoom")} />
+        <SidebarIcon icon={<FaUndo />} label="Invert" onClick={() => setTool("Invert")} />
+        <SidebarIcon icon={<FaArrowsAlt />} label="Flip Horizontal" onClick={() => setTool("FlipH")} />
+        <SidebarIcon icon={<FaSync />} label="Rotate 90°" onClick={() => setTool("Rotate")} />
+        <SidebarIcon icon={<FaUndo />} label="Reset" onClick={() => setTool("Reset")} />
+      </div>
+    </div>
+  );
+}
+
+// SidebarIcon component for reusability and tooltip
+function SidebarIcon({ icon, label, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      title={label}
+      style={{
+        background: "none",
+        border: "none",
+        color: "#fff",
+        fontSize: 26,
+        margin: "8px 0",
+        cursor: "pointer",
+        outline: "none"
+      }}
+    >
+      {icon}
+    </button>
+  );
+}
+
+// Legend component
+function Legend({ color, label }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", marginRight: 14, marginBottom: 5 }}>
+      <span style={{
+        width: 18, height: 18, background: color,
+        display: "inline-block", borderRadius: 4, marginRight: 6, border: "1px solid #444"
+      }} />
+      <span style={{ fontSize: 14 }}>{label}</span>
     </div>
   );
 }
