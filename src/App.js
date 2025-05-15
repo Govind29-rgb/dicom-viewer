@@ -1,12 +1,14 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import DicomImage from "./DicomImage";
 import {
-  FaArrowsAlt, FaRuler, FaPencilAlt, FaSun, FaSync, FaSearchPlus, FaSearchMinus, FaUndo, FaExpandArrowsAlt
+  FaArrowsAlt, FaRuler, FaPencilAlt, FaSun, FaSync, FaUndo, FaExpandArrowsAlt, FaEye, FaEyeSlash, FaSave
 } from "react-icons/fa";
 
 function App() {
   const [file, setFile] = useState(null);
   const [tool, setTool] = useState("Wwwc");
+  const [annotationsVisible, setAnnotationsVisible] = useState(true);
+  const dicomRef = useRef();
 
   function handleFileChange(e) {
     const selectedFile = e.target.files[0];
@@ -14,6 +16,19 @@ function App() {
       setFile(selectedFile);
     } else {
       alert("Please upload a .dcm (DICOM) file.");
+    }
+  }
+
+  function handleSaveImage() {
+    if (dicomRef.current) {
+      dicomRef.current.saveCanvasAsImage();
+    }
+  }
+
+  function handleToggleAnnotations() {
+    if (dicomRef.current) {
+      dicomRef.current.toggleAnnotations();
+      setAnnotationsVisible((v) => !v);
     }
   }
 
@@ -35,12 +50,19 @@ function App() {
         <div style={{ position: "absolute", top: 24, left: 24 }}>
           <input type="file" accept=".dcm" onChange={handleFileChange} style={{ color: "#fff" }} />
         </div>
-        {file && <DicomImage file={file} tool={tool} />}
+        {file &&
+          <DicomImage
+            ref={dicomRef}
+            file={file}
+            tool={tool}
+            annotationsVisible={annotationsVisible}
+          />
+        }
         {/* Legend Box */}
         <div style={{
           position: "absolute",
           bottom: 30,
-          right: 30,
+          right: 90,
           background: "#18181b",
           color: "#fff",
           borderRadius: 8,
@@ -74,17 +96,17 @@ function App() {
         <SidebarIcon icon={<FaRuler />} label="Measure Length" onClick={() => setTool("Length")} />
         <SidebarIcon icon={<FaPencilAlt />} label="Freehand Draw" onClick={() => setTool("FreehandRoi")} />
         <SidebarIcon icon={<FaExpandArrowsAlt />} label="Pan" onClick={() => setTool("Pan")} />
-        <SidebarIcon icon={<FaSearchPlus />} label="Zoom" onClick={() => setTool("Zoom")} />
-        <SidebarIcon icon={<FaUndo />} label="Invert" onClick={() => setTool("Invert")} />
         <SidebarIcon icon={<FaArrowsAlt />} label="Flip Horizontal" onClick={() => setTool("FlipH")} />
         <SidebarIcon icon={<FaSync />} label="Rotate 90°" onClick={() => setTool("Rotate")} />
+        <SidebarIcon icon={<FaUndo />} label="Invert" onClick={() => setTool("Invert")} />
+        <SidebarIcon icon={<FaEye />} label="Show/Hide Annotations" onClick={handleToggleAnnotations} />
+        <SidebarIcon icon={<FaSave />} label="Save as Image" onClick={handleSaveImage} />
         <SidebarIcon icon={<FaUndo />} label="Reset" onClick={() => setTool("Reset")} />
       </div>
     </div>
   );
 }
 
-// SidebarIcon component for reusability and tooltip
 function SidebarIcon({ icon, label, onClick }) {
   return (
     <button
@@ -105,7 +127,6 @@ function SidebarIcon({ icon, label, onClick }) {
   );
 }
 
-// Legend component
 function Legend({ color, label }) {
   return (
     <div style={{ display: "flex", alignItems: "center", marginRight: 14, marginBottom: 5 }}>
