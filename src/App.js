@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
 import DicomImage from "./DicomImage";
 import {
-  FaArrowsAlt, FaRuler, FaPencilAlt, FaSun, FaSync, FaUndo, FaExpandArrowsAlt, FaEye, FaEyeSlash, FaSave
+  FaArrowsAlt, FaRuler, FaPencilAlt, FaSun, FaSync, FaUndo, FaExpandArrowsAlt, FaEye, FaSave
 } from "react-icons/fa";
 
 function App() {
@@ -26,10 +26,7 @@ function App() {
   }
 
   function handleToggleAnnotations() {
-    if (dicomRef.current) {
-      dicomRef.current.toggleAnnotations();
-      setAnnotationsVisible((v) => !v);
-    }
+    setAnnotationsVisible((v) => !v);
   }
 
   return (

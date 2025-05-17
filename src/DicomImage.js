@@ -1,13 +1,25 @@
 import React, { useEffect, useRef, useImperativeHandle, forwardRef } from "react";
 import { cornerstone, cornerstoneWADOImageLoader, cornerstoneTools, initCornerstoneTools } from "./cornerstoneSetup";
 
+const TOOL_NAMES = [
+  "Wwwc",
+  "Zoom",
+  "Pan",
+  "Length",
+  "FreehandRoi"
+];
+
 const DicomImage = forwardRef(({ file, tool, annotationsVisible }, ref) => {
   const divRef = useRef();
-  const toolStateBackup = useRef(null);
+  const imageIdRef = useRef(null);
+  const annotationBackup = useRef(null);
+  const currentTool = useRef(null);
 
   useImperativeHandle(ref, () => ({
     saveCanvasAsImage,
-    toggleAnnotations
+    rotateViewport,
+    invertViewport,
+    resetViewport,
   }));
 
   useEffect(() => {
@@ -18,113 +30,134 @@ const DicomImage = forwardRef(({ file, tool, annotationsVisible }, ref) => {
     const element = divRef.current;
     cornerstone.enable(element);
 
+    let isMounted = true;
     const imageUrl = URL.createObjectURL(file);
-    const imageId = `wadouri:${imageUrl}`;
+    imageIdRef.current = `wadouri:${imageUrl}`;
 
-    cornerstone.loadImage(imageId)
+    cornerstone.loadImage(imageIdRef.current)
       .then(image => {
+        if (!isMounted) return;
         cornerstone.displayImage(element, image);
 
         if (!element.toolsAdded) {
-          cornerstoneTools.addTool(cornerstoneTools.WwwcTool);
-          cornerstoneTools.addTool(cornerstoneTools.ZoomTool);
-          cornerstoneTools.addTool(cornerstoneTools.PanTool);
-          cornerstoneTools.addTool(cornerstoneTools.LengthTool);
-          cornerstoneTools.addTool(cornerstoneTools.FreehandRoiTool);
+          TOOL_NAMES.forEach(toolName => {
+            if (toolName === "FreehandRoi") {
+              cornerstoneTools.addTool(cornerstoneTools.FreehandRoiTool, {
+                configuration: {
+                  renderCursor: true,
+                  drawHandles: true,
+                  drawHandlesOnHover: true,
+                }
+              });
+            } else {
+              cornerstoneTools.addTool(cornerstoneTools[`${toolName}Tool`]);
+            }
+          });
           element.toolsAdded = true;
         }
 
         cornerstoneTools.setToolActive("Wwwc", { mouseButtonMask: 1 });
       })
       .catch(err => {
+        console.error("DICOM load error:", err);
         alert("Could not load DICOM image. Try another file.");
-        console.error(err);
       });
 
     return () => {
-      cornerstone.disable(element);
+      isMounted = false;
+      if (element) {
+        try {
+          cornerstoneTools.globalImageIdSpecificToolStateManager.clear(element);
+          cornerstoneTools.deregisterAllToolsForElement(element);
+        } catch (e) {}
+        cornerstone.disable(element);
+      }
       URL.revokeObjectURL(imageUrl);
     };
   }, [file]);
 
-  // Handle tool switching and viewport changes
   useEffect(() => {
     const element = divRef.current;
-    if (!element) return;
+    if (!element || !file) return;
 
-    // Disable all mouse tools first
-    ["Wwwc", "Zoom", "Pan", "Length", "FreehandRoi"].forEach(t => {
-      try { cornerstoneTools.setToolDisabled(t, {}); } catch {}
-    });
-
-    // Activate the selected mouse tool
-    if (tool === "Wwwc") {
-      cornerstoneTools.setToolActive("Wwwc", { mouseButtonMask: 1 });
-    } else if (tool === "Zoom") {
-      cornerstoneTools.setToolActive("Zoom", { mouseButtonMask: 1 });
-    } else if (tool === "Pan") {
-      cornerstoneTools.setToolActive("Pan", { mouseButtonMask: 1 });
-    } else if (tool === "Length") {
-      cornerstoneTools.setToolActive("Length", { mouseButtonMask: 1 });
-    } else if (tool === "FreehandRoi") {
-      cornerstoneTools.setToolActive("FreehandRoi", { mouseButtonMask: 1 });
+    if (currentTool.current) {
+      try {
+        cornerstoneTools.setToolDisabled(currentTool.current, { mouseButtonMask: 1 });
+      } catch {}
     }
 
-    // Handle viewport operations
-    const enabledElement = cornerstone.getEnabledElement(element);
-    if (!enabledElement || !enabledElement.image) return;
-    const viewport = cornerstone.getViewport(element);
+    if (TOOL_NAMES.includes(tool)) {
+      try {
+        cornerstoneTools.setToolActive(tool, { mouseButtonMask: 1 });
+        currentTool.current = tool;
+      } catch (e) {
+        console.error("Error activating tool:", tool, e);
+      }
+    }
 
-    if (tool === "Invert") {
-      viewport.invert = !viewport.invert;
-      cornerstone.setViewport(element, viewport);
-    }
-    if (tool === "FlipH") {
-      viewport.hflip = !viewport.hflip;
-      cornerstone.setViewport(element, viewport);
-    }
-    if (tool === "FlipV") {
-      viewport.vflip = !viewport.vflip;
-      cornerstone.setViewport(element, viewport);
-    }
-    if (tool === "Rotate") {
-      viewport.rotation = (viewport.rotation + 90) % 360;
-      cornerstone.setViewport(element, viewport);
-    }
-    if (tool === "Reset") {
-      viewport.scale = 1;
-      viewport.rotation = 0;
-      viewport.invert = false;
-      viewport.hflip = false;
-      viewport.vflip = false;
-      cornerstone.setViewport(element, viewport);
-      cornerstoneTools.setToolActive("Wwwc", { mouseButtonMask: 1 });
-    }
-  }, [tool]);
+    cornerstone.updateImage(element);
+  }, [tool, file]);
 
-  // Annotation visibility toggle
+  // Robust annotation visibility toggle (per image)
   useEffect(() => {
     const element = divRef.current;
-    if (!element) return;
-    const imageId = cornerstone.getEnabledElement(element)?.image?.imageId;
+    if (!element || !file) return;
+
+    const imageId = imageIdRef.current;
     if (!imageId) return;
 
     const toolStateManager = cornerstoneTools.globalImageIdSpecificToolStateManager;
 
     if (!annotationsVisible) {
-      // Backup and clear all annotations
-      toolStateBackup.current = toolStateManager.saveToolState();
+      // Backup only the current imageId's tool state
+      const currentToolState = toolStateManager.saveToolState();
+      annotationBackup.current = currentToolState[imageId]
+        ? { [imageId]: currentToolState[imageId] }
+        : null;
       toolStateManager.clear(element);
       cornerstone.updateImage(element);
-    } else if (toolStateBackup.current) {
-      // Restore annotations
-      toolStateManager.restoreToolState(toolStateBackup.current);
-      cornerstone.updateImage(element);
-      toolStateBackup.current = null;
+    } else {
+      // Restore only if backup exists
+      if (annotationBackup.current && annotationBackup.current[imageId]) {
+        const restoredState = { [imageId]: annotationBackup.current[imageId] };
+        toolStateManager.restoreToolState(restoredState);
+        cornerstone.updateImage(element);
+      }
     }
-  }, [annotationsVisible]);
+  }, [annotationsVisible, file]);
 
-  // Save as image
+  function rotateViewport() {
+    const element = divRef.current;
+    if (!element) return;
+    const viewport = cornerstone.getViewport(element);
+    viewport.rotation = (viewport.rotation + 90) % 360;
+    cornerstone.setViewport(element, viewport);
+    cornerstone.updateImage(element);
+  }
+
+  function invertViewport() {
+    const element = divRef.current;
+    if (!element) return;
+    const viewport = cornerstone.getViewport(element);
+    viewport.invert = !viewport.invert;
+    cornerstone.setViewport(element, viewport);
+    cornerstone.updateImage(element);
+  }
+
+  function resetViewport() {
+    const element = divRef.current;
+    if (!element) return;
+    const viewport = cornerstone.getViewport(element);
+    viewport.scale = 1;
+    viewport.rotation = 0;
+    viewport.invert = false;
+    viewport.hflip = false;
+    viewport.vflip = false;
+    cornerstone.setViewport(element, viewport);
+    cornerstoneTools.setToolActive("Wwwc", { mouseButtonMask: 1 });
+    cornerstone.updateImage(element);
+  }
+
   function saveCanvasAsImage() {
     const element = divRef.current;
     if (!element) return;
@@ -137,11 +170,6 @@ const DicomImage = forwardRef(({ file, tool, annotationsVisible }, ref) => {
     link.download = "dicom-annotation.png";
     link.href = canvas.toDataURL("image/png");
     link.click();
-  }
-
-  // Toggle annotations (handled by useEffect above)
-  function toggleAnnotations() {
-    // No-op, handled by parent state
   }
 
   return (
